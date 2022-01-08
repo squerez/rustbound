@@ -14,3 +14,6 @@ build.bat
 
 # Ignore vscode files
 /.vscode/
+
+# Ignore local configuration file
+./conf/app_settings.toml.local

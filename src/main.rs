@@ -1,5 +1,6 @@
 use std::env;
 use std::process::Command;
+use configparser::ini::Ini;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -27,5 +28,10 @@ fn main() {
         println!("Executing in cmd:");
         println!("{}", output.status);
         println!("{}", String::from_utf8_lossy(&output.stdout));
+
+        // Read configuration
+        let mut config = Ini::new();
+        let map = config.load("./conf/app_settings.ini");
+        println!("{:?}", map);
     }
 }
