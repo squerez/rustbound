@@ -27,6 +27,6 @@ fn main() {
     
     // Read configuration
     let mut config = Ini::new();
-    let map = config.load("../conf/app_settings.ini");
+    let map = config.load("./conf/app_settings.ini");
     println!("{:?}", map);
 }
