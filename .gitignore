@@ -16,4 +16,4 @@ build.bat
 /.vscode/
 
 # Ignore local configuration file
-./conf/app_settings.toml.local
+./conf/local.ini
