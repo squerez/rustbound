@@ -4,23 +4,28 @@ use std::process::Command;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    // Executing batch/sh selected file
-    println!("Executing in cmd:");
-    for arg in &args[1..]{
-        println!("{}", arg);
-    }
-    let output = if cfg!(target_os = "windows"){
-        Command::new("cmd")
-                .args(&args[1..])
-                .output()
-                .expect("failed to execute process")
+    if args.len()< 2 {
+        println!("It needs the directory of the project passed as an argument");
     }
     else{
-        Command::new("sh")
-                .args(&args[1..])
-                .output()
-                .expect("failed to execute process")
-    };
+        let cmdline;
+        if cfg!(target_os = "windows"){
+            cmdline = "cmd";
+        }
+        else{
+            cmdline = "sh";
+        }
+        // Executing cargo build on directory~
+        //let mut directory = "cd ".to_owned();
+        
+        let output =  Command::new(cmdline)
+                            .arg(format!("cd {}", args[1]))
+                            .arg("cargo build")
+                            .output()
+                            .expect("failed to execute process");
 
-    println!("{}", output.status);
+        println!("Executing in cmd:");
+        println!("{}", output.status);
+        println!("{}", String::from_utf8_lossy(&output.stdout));
+    }
 }
