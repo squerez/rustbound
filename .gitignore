@@ -12,6 +12,7 @@ Cargo.lock
 
 # Windows script build file
 build.bat
+run.bat
 
 # Ignore vscode files
 /.vscode/

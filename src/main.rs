@@ -1,6 +1,4 @@
-use std::fs;
 use std::env;
-use std::path::Path;
 use std::process::Command;
 use configparser::ini::Ini;
 
@@ -12,46 +10,22 @@ fn main() {
     }
     else{
         let cmdline;
-        let script;
-        let cmd_arg;
+        let argument;
         if cfg!(target_os = "windows"){
-            script = "bat";
             cmdline = "cmd";
-            cmd_arg = "/C";
+            argument = format!("/K cd {} & cargo build", args[1]);
         }
         else{
             cmdline = "/bin/bash";
-            script = "sh";
-            cmd_arg = "";
+            argument = format!("cd {} && cargo build", args[1]);
         }
 
-        // Remove temporary files and create temporary folder
-        let tmp_path = "./.tmp/";
-        let path_exists: bool = Path::new(tmp_path).is_dir();
-
-        if path_exists {
-            fs::remove_dir_all(tmp_path).unwrap();
-        }
-        fs::create_dir(tmp_path).unwrap();
-
-        // Create a file inside a scope because i don't know how to
-        // close it properly
-        let filename = format!("{}/run.{}", tmp_path, script);
-        {
-            let _result = fs::write(&filename, format!("cd {}\ncargo build", args[1]));
-        }
-        println!("{}{}", &cmdline, &filename);
-
-        let argument = format!("{} \"cd \"{}\" & cargo build\"", cmd_arg, args[1]);
-        println!("{}", argument);
         // Executing cargo build on directory
         let output =  Command::new(&cmdline)
-                                .arg(filename)
-                                .arg(cmd_arg)
+                                .arg(argument)
                                 .output()
                                 .expect("failed to execute process");
 
-        println!("Executing in cmd:");
         println!("{}", String::from_utf8_lossy(&output.stderr));
 
         // Read configuration
