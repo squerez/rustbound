@@ -1,3 +1,3 @@
 run:
-	cargo b 
-	cargo r
+	cargo build
+	cargo run
