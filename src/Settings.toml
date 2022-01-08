@@ -1,0 +1,7 @@
+client_id = "__client_id__" 
+client_secret = "__client_secret__"
+key = "__key__"
+description = "Rustbound stack overflow API key for development"
+oauth_domain = "google.com"
+application_website = "https://github.com/joao-fm-santos/rustbound"
+
