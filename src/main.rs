@@ -1,7 +1,6 @@
 use std::fs;
 use std::env;
 use std::path::Path;
-use std::fs;
 use std::process::Command;
 use configparser::ini::Ini;
 
@@ -21,9 +20,9 @@ fn main() {
             cmd_arg = "/C";
         }
         else{
-            cmdline = "sh";
+            cmdline = "/bin/bash";
             script = "sh";
-            cmd_arg = "-c";
+            cmd_arg = "";
         }
 
         // Remove temporary files and create temporary folder
@@ -39,16 +38,16 @@ fn main() {
         // close it properly
         let filename = format!("{}/run.{}", tmp_path, script);
         {
-            let _result = fs::write(&filename,
-                                    format!("cd \"{}\"\ncargo build", args[1]));
+            let _result = fs::write(&filename, format!("cd {}\ncargo build", args[1]));
         }
+        println!("{}{}", &cmdline, &filename);
 
         // Executing cargo build on directory
         let output =  Command::new(&cmdline)
-                            .arg(&cmd_arg)
-                            .arg(&filename)
-                            .output()
-                            .expect("failed to execute process");
+                                .arg(filename)
+                                .arg(cmd_arg)
+                                .output()
+                                .expect("failed to execute process");
 
         println!("Executing in cmd:");
         println!("{}", String::from_utf8_lossy(&output.stderr));

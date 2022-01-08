@@ -20,5 +20,5 @@ build.bat
 ./conf/local.ini
 
 # Ignore example folder
-./example/
 ./examples/
+./.tmp/
