@@ -1,7 +1,8 @@
-use std::env;
 use std::fs;
+use std::env;
+use std::path::Path;
 use std::process::Command;
-//use configparser::ini::Ini;
+use configparser::ini::Ini;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -19,36 +20,43 @@ fn main() {
             cmd_arg = "/C";
         }
         else{
-            cmdline = "sh";
+            cmdline = "/bin/bash";
             script = "sh";
-            cmd_arg = "-c";
+            cmd_arg = "";
         }
+
+        // Remove temporary files and create temporary folder
+        let tmp_path = "./.tmp/";
+        let path_exists: bool = Path::new(tmp_path).is_dir();
+
+        if path_exists {
+            fs::remove_dir_all(tmp_path).unwrap();
+        }
+        fs::create_dir(tmp_path).unwrap();
+
         // Create a file inside a scope because i don't know how to
         // close it properly
-        let filename = format!("run.{}",script);
+        let filename = format!("{}/run.{}", tmp_path, script);
         {
-            let _result = fs::write(&filename,
-                                    format!("cd \"{}\"\ncargo build", args[1]));
+            let _result = fs::write(&filename, format!("cd {}\ncargo build", args[1]));
         }
+        println!("{}{}", &cmdline, &filename);
 
         let argument = format!("{} \"cd \"{}\" & cargo build\"", cmd_arg, args[1]);
         println!("{}", argument);
         // Executing cargo build on directory
         let output =  Command::new(&cmdline)
-                            .arg(argument)
-                            //.arg(&cmd_arg)
-                            //.arg(&filename)
-                            .arg("cargo build")
-                            .output()
-                            .expect("failed to execute process");
+                                .arg(filename)
+                                .arg(cmd_arg)
+                                .output()
+                                .expect("failed to execute process");
 
         println!("Executing in cmd:");
-        println!("{}", output.status);
         println!("{}", String::from_utf8_lossy(&output.stderr));
 
         // Read configuration
-        //let mut config = Ini::new();
-        //let map = config.load("./conf/app_settings.ini");
-        //println!("{:?}", map);
+        let mut config = Ini::new();
+        let map = config.load("./conf/app_settings.ini");
+        println!("{:?}", map);
     }
 }
