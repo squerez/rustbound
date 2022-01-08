@@ -1,4 +1,12 @@
+use std::env;
+
 fn main() {
-    let number = 123;
-    println!("Hello, world! {}", number);
+    let args: Vec<String> = env::args().collect();
+
+    executable = args[1];
+    println!("The arguments are:");
+    /*for arg in args{
+        println!("{}", arg);
+    }*/
+
 }
