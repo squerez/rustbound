@@ -1,4 +1,6 @@
+use std::fs;
 use std::env;
+use std::path::Path;
 use std::process::Command;
 use configparser::ini::Ini;
 
@@ -16,9 +18,17 @@ fn main() {
         else{
             cmdline = "sh";
         }
-        // Executing cargo build on directory~
-        //let mut directory = "cd ".to_owned();
-        
+
+        // Remove temporary files and create temporary folder
+        let tmp_path = "./.tmp/";
+        let path_exists: bool = Path::new(tmp_path).is_dir();
+
+        if path_exists {
+            fs::remove_dir_all(tmp_path).unwrap();
+        }
+        fs::create_dir(tmp_path).unwrap();
+
+        // Executing cargo build on directory
         let output =  Command::new(cmdline)
                             .arg(format!("cd {}", args[1]))
                             .arg("cargo build")

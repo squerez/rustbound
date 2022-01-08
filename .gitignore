@@ -17,3 +17,7 @@ build.bat
 
 # Ignore local configuration file
 ./conf/local.ini
+
+# Ignore example folder
+./example/
+./examples/
