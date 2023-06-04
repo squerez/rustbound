@@ -1,6 +1,11 @@
+check-linting:
+	cargo clippy --all-targets --all-features -- -D warnings
+
+fix-linting:
+	cargo clippy --fix
+
+run-tests:
+	cargo test
+
 run:
-	cargo build
-	cargo run 
-	mkdir -p ./target/debug/conf
-	cp -a ./conf/. ./target/debug/conf/
-	./target/debug/rustbound ../../example
+	cargo build && cargo run
