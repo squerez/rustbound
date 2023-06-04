@@ -3,28 +3,99 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use ratatui::{
+use std::{
+    error::Error,
+    io,
+    time::{Duration, Instant},
+};
+use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::Span,
-    widgets::{Block, BorderType, Borders, Padding, Paragraph},
+    text::{Span, Spans},
+    widgets::{Block, Borders, List, ListItem, ListState},
     Frame, Terminal,
 };
-use std::{error::Error, io};
+
+struct StatefulList<T> {
+    state: ListState,
+    items: Vec<T>,
+}
+
+impl<T> StatefulList<T> {
+    fn with_items(items: Vec<T>) -> StatefulList<T> {
+        StatefulList {
+            state: ListState::default(),
+            items,
+        }
+    }
+
+    fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 {
+                    0
+                } else {
+                    i + 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 {
+                    self.items.len() - 1
+                } else {
+                    i - 1
+                }
+            }
+            None => 0,
+        };
+        self.state.select(Some(i));
+    }
+
+    fn unselect(&mut self) {
+        self.state.select(None);
+    }
+}
+
+struct App<'a> {
+    items: StatefulList<(&'a str, usize)>,
+}
+
+impl<'a> App<'a> {
+    fn new() -> App<'a> {
+        App {
+            items: StatefulList::with_items(vec![
+                ("Item0", 1),
+                ("Item1", 2),
+                ("Item2", 1),
+                ("Item3", 3),
+                ("Item4", 1),
+                ("Item5", 4),
+            ]),
+        }
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // setup terminal
+    // Initialize terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // create app and run it
-    let res = run_app(&mut terminal);
+    // Run application
+    let tick_rate = Duration::from_millis(250);
+    let app = App::new();
+    let res = run_app(&mut terminal, app, tick_rate);
 
-    // restore terminal
+    // Shutdown terminal
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
@@ -33,105 +104,118 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     terminal.show_cursor()?;
 
+    // Return errors (if exist)
     if let Err(err) = res {
-        println!("{err:?}");
+        println!("{:?}", err)
     }
-
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
+fn run_app<B: Backend>(
+    terminal: &mut Terminal<B>,
+    mut app: App,
+    tick_rate: Duration,
+) -> io::Result<()> {
+    let mut last_tick = Instant::now();
     loop {
-        terminal.draw(ui)?;
+        terminal.draw(|f| ui(f, &mut app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if let KeyCode::Char('q') = key.code {
-                return Ok(());
+        let timeout = tick_rate
+            .checked_sub(last_tick.elapsed())
+            .unwrap_or_else(|| Duration::from_secs(0));
+
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Char('q') => return Ok(()),
+                    KeyCode::Left => app.items.unselect(),
+                    KeyCode::Down => app.items.next(),
+                    KeyCode::Up => app.items.previous(),
+                    _ => {}
+                }
             }
+        }
+        if last_tick.elapsed() >= tick_rate {
+            last_tick = Instant::now();
         }
     }
 }
 
-fn ui<B: Backend>(f: &mut Frame<B>) {
-    // Wrapping block for a group
-    // Just draw the block and the group on the same area and build the group
-    // with at least a margin of 1
-    let size = f.size();
-
-    // Surrounding block
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title("Main block with round corners")
-        .title_alignment(Alignment::Center)
-        .border_type(BorderType::Rounded);
-    f.render_widget(block, size);
-
+fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
+    // Create two chunks with equal horizontal screen space
     let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .margin(4)
+        .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
         .split(f.size());
 
-    // Top two inner blocks
-    let top_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-        .split(chunks[0]);
-
-    // Top left inner block with green background
-    let block = Block::default()
-        .title(vec![
-            Span::styled("With", Style::default().fg(Color::Yellow)),
-            Span::from(" background"),
-        ])
-        .style(Style::default().bg(Color::Green));
-    f.render_widget(block, top_chunks[0]);
-
-    // Top right inner block with styled title aligned to the right
-    let block = Block::default()
-        .title(Span::styled(
-            "Styled title",
+    // Create a List from all list items and highlight the currently selected one
+    let items = List::new(app.items.items)
+        .block(Block::default().borders(Borders::ALL).title("List"))
+        .highlight_style(
             Style::default()
-                .fg(Color::White)
-                .bg(Color::Red)
+                .bg(Color::LightGreen)
                 .add_modifier(Modifier::BOLD),
-        ))
-        .title_alignment(Alignment::Right);
-    f.render_widget(block, top_chunks[1]);
+        )
+        .highlight_symbol(">> ");
 
-    // Bottom two inner blocks
-    let bottom_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-        .split(chunks[1]);
-
-    // Bottom left block with all default borders
-    let block = Block::default()
-        .title("With borders")
-        .borders(Borders::ALL)
-        .padding(Padding {
-            left: 4,
-            right: 4,
-            top: 2,
-            bottom: 2,
-        });
-
-    let text = Paragraph::new("text inside padded block").block(block);
-    f.render_widget(text, bottom_chunks[0]);
-
-    // Bottom right block with styled left and right border
-    let block = Block::default()
-        .title("With styled borders and doubled borders")
-        .border_style(Style::default().fg(Color::Cyan))
-        .borders(Borders::LEFT | Borders::RIGHT)
-        .border_type(BorderType::Double)
-        .padding(Padding::uniform(1));
-
-    let inner_block = Block::default()
-        .title("Block inside padded block")
-        .borders(Borders::ALL);
-
-    let inner_area = block.inner(bottom_chunks[1]);
-    f.render_widget(block, bottom_chunks[1]);
-    f.render_widget(inner_block, inner_area);
+    // We can now render the item list
+    f.render_stateful_widget(items, chunks[0], &mut app.items.state);
 }
+
+//fn main() -> Result<(), io::Error> {
+//    // Disables the default modes in a terminal
+//    enable_raw_mode()?;
+
+//    // Enable stdout to handle the standard output of the current process
+//    let mut stdout = io::stdout();
+
+//    //Immediately switch to alternate screen and read mouse
+//    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+
+//    // Initialize tui application and clear drawings
+//    let backend = CrosstermBackend::new(stdout);
+//    let mut terminal = Terminal::new(backend)?;
+//    terminal.clear().unwrap();
+
+//    // Create app
+//    let tick_rate = Duration::from_millis(250);
+//    let app = App::new();
+//    let res
+
+//    // Start drawing
+//    terminal.draw(|f| {
+//      let chunks = Layout::default()
+//            .direction(Direction::Horizontal)
+//            .margin(1)
+//            .constraints(
+//                [
+//                    Constraint::Percentage(50),
+//                    Constraint::Percentage(50),
+//                ].as_ref()
+//            )
+//            .split(f.size());
+
+//        let block = Block::default()
+//             .title("Results")
+//             .borders(Borders::ALL);
+//        f.render_widget(block, chunks[0]);
+
+//        let block = Block::default()
+//             .title("Preview")
+//             .borders(Borders::ALL);
+//        f.render_widget(block, chunks[1]);
+//        }
+//    )?;
+
+//    thread::sleep(Duration::from_millis(5000));
+
+//    // Restore terminal
+//    disable_raw_mode()?;
+//    execute!(
+//        terminal.backend_mut(),
+//        LeaveAlternateScreen,
+//        DisableMouseCapture
+//    )?;
+//    terminal.show_cursor()?;
+//    Ok(())
+//}
